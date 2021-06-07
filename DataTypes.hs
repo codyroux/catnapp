@@ -2,7 +2,7 @@ module DataTypes where
 import Data.Maybe (fromJust)
 import Data.List (intersperse)
 
-data Obj = OVar String | ORigid String | OConstr String [Obj] [Type]
+data Obj = OVar String | ORigid String | OConstr String [Obj] [Mor]
            deriving (Eq)
 
 instance Show Obj where
@@ -15,6 +15,9 @@ data ObjSubst = ObjSubst { vals :: [(String, Obj)] }
 
 class Substable a where
     applySubst :: ObjSubst -> a -> a
+
+emptyObjSubst :: ObjSubst
+emptyObjSubst = ObjSubst []
 
 applyObjSubst :: ObjSubst -> Obj -> Obj
 applyObjSubst s (OVar n) = fromJust $ lookup n (vals s)
@@ -141,18 +144,52 @@ prodMor = constrMor "prod" [varMor "f" (c .->. a), varMor "g" (c .->. b)] (c .->
           b = OVar "b"
           c = OVar "c"
 
-pullBack :: Type -> Type -> Maybe Obj
+pullBack :: Mor -> Mor -> Maybe Obj
 pullBack f g = if getCodom f == getCodom g
                then
-                   Just $ OConstr "pullBack" [] [f, g]
+                 Just $ OConstr "pullBack" [] [f, g]
                else
-                   Nothing
+                 Nothing
 
 pullBacks :: Obj
-pullBacks = fromJust $ pullBack (a .->. b) (e .->. b)
+pullBacks = fromJust $ pullBack f g
     where a = OVar "a"
           b = OVar "b"
-          e = OVar "e"
+          c = OVar "c"
+          f = varMor "f" (a .->. b)
+          g = varMor "g" (c .->. b)
+
+pbProj1 :: Mor
+pbProj1 = unitMor $ MConstr "pbProj1" [] (pbFG .->. a)
+    where a = OVar "a"
+          b = OVar "b"
+          c = OVar "c"
+          f = varMor "f" (a .->. b)
+          g = varMor "g" (c .->. b)
+          pbFG = fromJust $ pullBack f g
+
+pbProj2 :: Mor
+pbProj2 = unitMor $ MConstr "pbProj1" [] (pbFG .->. b)
+    where a = OVar "a"
+          b = OVar "b"
+          c = OVar "c"
+          f = varMor "f" (a .->. b)
+          g = varMor "g" (c .->. b)
+          pbFG = fromJust $ pullBack f g
+
+
+pbInit :: Mor
+pbInit = unitMor $ MConstr "pbInit" [h1, h2] (d .->. pbFG)
+    where a = OVar "a"
+          b = OVar "b"
+          c = OVar "c"
+          d = OVar "d"
+          f = varMor "f" (a .->. b)
+          g = varMor "g" (c .->. b)
+          h1 = varMor "h1" (d .->. a)
+          h2 = varMor "h2" (d .->. c)
+          pbFG = fromJust $ pullBack f g
+
 
 expObj :: Obj -> Obj -> Obj
 expObj a b = OConstr "exp" [a, b] []
