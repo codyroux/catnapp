@@ -1,7 +1,7 @@
 module Matching where
 
 import Control.Monad.Free (join, liftM2)
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, catMaybes)
 import DataTypes
 
 -- We correctly handle non-linearity
@@ -58,11 +58,30 @@ codomMatch (Type _ c1) (Type _ c2) = objMatchInit c1 c2
 -- picked stupid objects.  It might be worth asking that object
 -- constructors have no "redundant" data, e.g. objects that are just
 -- domains or codomains of some defining morphisms
-findObj ::  Obj -> [Obj] -> [Mor] -> Maybe ObjSubst
-findObj (OConstr _ oPat morPat) objs mors =
+findObjAux :: Obj -> [Obj] -> [Mor] -> Maybe ObjSubst
+findObjAux (OConstr _ oPat morPat) objs mors =
   join $ liftM2 compSubst morSubst objSubst
   where morSubst =
           tyMatchList emptyObjSubst $ zip (map getMorType morPat) (map getMorType mors)
         objSubst =
           objMatchList emptyObjSubst $ zip oPat objs
-findObj _ _ _ = undefined
+-- TODO: handle rigid case
+findObjAux _ _ _ = Nothing
+
+
+findObj :: Obj -> [Obj] -> [Mor] -> Maybe Obj
+findObj o os ms =
+  do
+    sub <- findObjAux o os ms
+    return $ applySubst sub o
+
+findObjs :: Obj -> [Obj] -> [Mor] -> [Obj]
+findObjs o os ms = catMaybes [findObj o os ms]
+
+test :: Maybe ObjSubst
+test = findObjAux pullBacks [] [h, i]
+  where u = ORigid "u"
+        v = ORigid "v"
+        w = ORigid "w"
+        h = rigidMor "h" (u .->. v)
+        i = rigidMor "i" (w .->. v)
